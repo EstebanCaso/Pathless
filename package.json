@@ -1,0 +1,20 @@
+{
+  "name": "pathless",
+  "version": "1.0.0",
+  "description": "3D Pathfinding Simulator with A* Algorithm",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "keywords": ["pathfinding", "astar", "3d", "simulation", "grid"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.7.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}

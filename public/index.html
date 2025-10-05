@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pathless - 3D Pathfinding Simulator</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+        }
+        
+        #container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+        
+        #canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 10px 20px;
+            border-radius: 12px;
+            color: #333;
+            z-index: 100;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 15px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .control-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin: 0;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            white-space: nowrap;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .mode-button {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+        
+        .mode-button.active {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            transform: scale(1.05);
+        }
+        
+        #status {
+            margin-top: 10px;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 8px;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <canvas id="canvas"></canvas>
+        <div id="ui">
+            <h2 style="margin: 0; font-size: 18px;">Pathless</h2>
+            
+            <div class="control-group">
+                <label style="margin: 0; font-size: 12px;">Modo:</label>
+                <button id="mode-start" class="mode-button active">Inicio</button>
+                <button id="mode-end" class="mode-button">Final</button>
+                <button id="mode-wall" class="mode-button">Muros</button>
+                <button id="mode-clear" class="mode-button">Limpiar</button>
+            </div>
+            
+            <div class="control-group">
+                <button id="find-path">Buscar</button>
+                <button id="clear-all">Limpiar Todo</button>
+                <button id="reset-view">Reset</button>
+                <button id="toggle-view">Vista 3D</button>
+            </div>
+            
+            <div id="status" style="font-size: 12px; margin: 0;">
+                <span id="view-mode">2D</span> | 
+                <span id="start-status">Inicio: No</span> | 
+                <span id="end-status">Final: No</span> | 
+                <span id="walls-status">Muros: 0</span>
+                <span style="margin-left: 10px; opacity: 0.7;">Presiona H para ayuda</span>
+            </div>
+        </div>
+        
+        <!-- Panel de ayuda -->
+        <div id="help-panel" style="display: none; position: absolute; top: 60px; left: 10px; background: rgba(0,0,0,0.9); color: white; padding: 15px; border-radius: 8px; font-size: 12px; z-index: 200; max-width: 300px;">
+            <h3 style="margin: 0 0 10px 0;">Controles:</h3>
+            <div><strong>S</strong> - Punto Inicio</div>
+            <div><strong>E</strong> - Punto Final</div>
+            <div><strong>W</strong> - Muros</div>
+            <div><strong>C</strong> - Limpiar</div>
+            <div><strong>F</strong> - Buscar Camino</div>
+            <div><strong>R</strong> - Reset Vista</div>
+            <div><strong>V</strong> - Cambiar Vista</div>
+            <div><strong>H</strong> - Mostrar/Ocultar Ayuda</div>
+            <div style="margin-top: 10px; opacity: 0.8;">
+                <strong>Mouse:</strong> Arrastra para mover/rotar, rueda para zoom
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // Verificar que Three.js se cargue correctamente
+        window.addEventListener('load', () => {
+            if (typeof THREE === 'undefined') {
+                console.error('Error: Three.js no se cargó correctamente');
+                document.body.innerHTML = '<div style="color: red; font-size: 24px; text-align: center; margin-top: 50px;">Error: Three.js no se pudo cargar. Verifica tu conexión a internet.</div>';
+            } else {
+                console.log('Three.js cargado correctamente:', THREE.REVISION);
+            }
+        });
+    </script>
+    <script src="js/config.js"></script>
+    <script src="js/grid.js"></script>
+    <script src="js/astar.js"></script>
+    <script src="js/visualization.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>

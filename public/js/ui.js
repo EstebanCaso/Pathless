@@ -29,7 +29,9 @@ class UserInteraction {
         document.getElementById('mode-wall').addEventListener('click', () => {
             this.setMode('wall');
         });
-        
+        document.getElementById('mode-traffic').addEventListener('click', () => {
+            this.setMode('traffic');
+        });
         document.getElementById('mode-clear').addEventListener('click', () => {
             this.setMode('clear');
         });
@@ -118,7 +120,7 @@ class UserInteraction {
         // Actualizar estados individuales
         startStatusElement.textContent = `Inicio: ${stats.hasStart ? '✓' : 'No'}`;
         endStatusElement.textContent = `Final: ${stats.hasEnd ? '✓' : 'No'}`;
-        wallsStatusElement.textContent = `Muros: ${stats.walls}`;
+        wallsStatusElement.textContent = `Muros: ${stats.walls} | Tráfico: ${stats.traffic}`;
     }
     
     getModeDescription() {
@@ -126,6 +128,7 @@ class UserInteraction {
             'start': 'Colocando punto de inicio',
             'end': 'Colocando punto final',
             'wall': 'Colocando muros',
+            'traffic': 'Colocando tráfico',
             'clear': 'Limpiando celdas'
         };
         return descriptions[this.currentMode] || 'Selecciona un modo de edición';
@@ -195,6 +198,9 @@ class UserInteraction {
             case 'wall':
                 this.toggleWall(x, y);
                 break;
+            case 'traffic':
+                this.toggleTraffic(x, y);
+                break;
             case 'clear':
                 this.clearCell(x, y);
                 break;
@@ -236,6 +242,20 @@ class UserInteraction {
         
         // Alternar entre muro y vacío
         const newType = cell.type === 'wall' ? 'empty' : 'wall';
+        this.grid.setCellType(x, y, newType);
+        this.visualization.updateGrid(this.grid);
+    }
+    toggleTraffic(x, y) {
+        const cell = this.grid.getCell(x, y);
+        if (!cell) return;
+        
+        // No permitir colocar muros en puntos de inicio o final
+        if (cell.type === 'start' || cell.type === 'end') {
+            return;
+        }
+        
+        // Alternar entre muro y vacío
+        const newType = cell.type === 'traffic' ? 'empty' : 'traffic';
         this.grid.setCellType(x, y, newType);
         this.visualization.updateGrid(this.grid);
     }
@@ -283,7 +303,7 @@ class UserInteraction {
             this.visualization.updateGrid(this.grid);
             
             // Animar el carro siguiendo el path
-            this.visualization.animateCar(path);
+            this.visualization.animateCar(path, this.grid);
             
             // Mostrar mensaje de éxito
             this.showMessage(`¡Camino encontrado! Longitud: ${pathStats.pathLength} celdas, Tiempo: ${timeTaken}ms. Presiona 'R' para volver a vista 2D.`);
@@ -325,6 +345,9 @@ class UserInteraction {
                 break;
             case 'w':
                 this.setMode('wall');
+                break;
+            case 't':
+                this.setMode('traffic');
                 break;
             case 'c':
                 this.setMode('clear');

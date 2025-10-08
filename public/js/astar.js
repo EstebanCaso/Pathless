@@ -60,15 +60,24 @@ class AStar {
             
             for (const neighbor of neighbors) {
                 const neighborKey = `${neighbor.x},${neighbor.y}`;
-                
-                // Si el vecino está en closedSet, saltarlo
+    
+                 // Si el vecino está en closedSet, saltarlo
                 if (closedSet.has(neighborKey)) {
                     continue;
                 }
-                
+    
                 // Calcular g tentativo
-                const tentativeG = current.g + this.distance(current, neighbor);
-                
+                const movementCost = this.distance(current, neighbor);
+    
+                // Penalización por tráfico (si la celda es tipo "traffic")
+                let trafficPenalty = 0;
+                if (neighbor.type === 'traffic') {
+                    trafficPenalty = 2; // Ajusta este valor según la severidad del tráfico
+                }
+
+                const cellCost = neighbor.cost || 1;
+                const tentativeG = current.g + movementCost * cellCost + trafficPenalty;
+    
                 // Si el vecino no está en openSet, agregarlo
                 if (!openSet.includes(neighbor)) {
                     openSet.push(neighbor);
@@ -76,7 +85,7 @@ class AStar {
                     // Si el camino actual no es mejor, saltarlo
                     continue;
                 }
-                
+    
                 // Este es el mejor camino hasta ahora
                 neighbor.parent = current;
                 neighbor.g = tentativeG;

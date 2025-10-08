@@ -24,6 +24,7 @@ class Grid {
                     x: x,
                     y: y,
                     walkable: true,
+                    cost:1,
                     g: 0, // Costo desde el inicio
                     h: 0, // Heurística hasta el final
                     f: 0, // f = g + h
@@ -49,7 +50,17 @@ class Grid {
             
             // Establecer nuevo tipo
             cell.type = type;
-            cell.walkable = (type !== 'wall');
+            
+            if(type == 'wall'){
+                cell.walkable = false;
+                cell.cost = Infinity;
+            }else if(type === 'traffic'){
+                cell.walkable = true;
+                cell.cost = 2;
+            }else{
+                cell.walkable = true;
+                cell.cost = 1;
+            }
             
             // Actualizar referencias
             if (type === 'start') {
@@ -188,7 +199,7 @@ class Grid {
         for (let y = 0; y < this.height; y++) {
             for (let x = 0; x < this.width; x++) {
                 const cell = this.cells[y][x];
-                if (cell.type === 'wall') {
+                if (cell.type === 'wall' || cell.type === 'traffic') {
                     cell.type = 'empty';
                     cell.walkable = true;
                 }
@@ -220,12 +231,14 @@ class Grid {
      */
     getStats() {
         let walls = 0;
+        let traffic = 0;
         let pathCells = 0;
         
         for (let y = 0; y < this.height; y++) {
             for (let x = 0; x < this.width; x++) {
                 const cell = this.cells[y][x];
                 if (cell.type === 'wall') walls++;
+                if (cell.type === 'traffic') traffic++;
                 if (cell.type === 'path') pathCells++;
             }
         }
@@ -233,6 +246,7 @@ class Grid {
         return {
             totalCells: this.width * this.height,
             walls: walls,
+            traffic: traffic,
             pathCells: pathCells,
             startPoint: this.startPoint,
             endPoint: this.endPoint,

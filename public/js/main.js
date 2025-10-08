@@ -96,7 +96,7 @@ class PathlessApp {
             this.visualization.updateGrid(this.grid);
             
             // Animar carro
-            this.visualization.animateCar(data.path);
+            this.visualization.animateCar(data.path, this.grid);
             
             // Mostrar estadísticas
             const stats = this.astar.getPathfindingStats(data.path);

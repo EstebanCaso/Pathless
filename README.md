@@ -11,6 +11,7 @@ Un simulador 3D de pathfinding que utiliza el algoritmo A* para encontrar el cam
 - Interfaz para colocar puntos de entrada, salida y muros
 
 ## Instalación
+Es necesario tener Node.JS descargado en la computadora para su ejecución
 
 ```bash
 npm install

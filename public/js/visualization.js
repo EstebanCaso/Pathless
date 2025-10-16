@@ -69,7 +69,7 @@ class Visualization3D {
     createScene() {
         this.scene = new THREE.Scene();
         // Fondo blanco para canvas
-        this.scene.background = new THREE.Color(0xffffff);
+        this.scene.background = new THREE.Color(0x4B764C);
     }
     
     createCamera() {
@@ -611,7 +611,7 @@ class Visualization3D {
         
         // Calcular dirección hacia el siguiente punto
         const angle = Math.atan2(nextZ - currentZ, nextX - currentX);
-        this.car.rotation.y = angle;
+        this.car.rotation.y = angle - Math.PI / 2; // Ajustar para que mire hacia adelante
         
         // Incrementar índice con velocidad ajustada
         this.carIndex += currentSpeed;

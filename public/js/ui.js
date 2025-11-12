@@ -118,18 +118,18 @@ class UserInteraction {
         const wallsStatusElement = document.getElementById('walls-status');
         
         // Actualizar indicador de vista
-        if (this.visualization.currentView === '2d') {
-            viewModeElement.textContent = '2D';
-            toggleButton.textContent = 'Vista 3D';
+        if (this.visualization && this.visualization.currentView === '2d') {
+            if (viewModeElement) viewModeElement.textContent = '2D';
+            if (toggleButton) toggleButton.textContent = 'Vista 3D';
         } else {
-            viewModeElement.textContent = '3D';
-            toggleButton.textContent = 'Vista 2D';
+            if (viewModeElement) viewModeElement.textContent = '3D';
+            if (toggleButton) toggleButton.textContent = 'Vista 2D';
         }
         
         // Actualizar estados individuales
-        startStatusElement.textContent = `Inicio: ${stats.hasStart ? '✓' : 'No'}`;
-        endStatusElement.textContent = `Final: ${stats.hasEnd ? '✓' : 'No'}`;
-        wallsStatusElement.textContent = `Muros: ${stats.walls} | Tráfico: ${stats.traffic}`;
+        if (startStatusElement) startStatusElement.textContent = `Inicio: ${stats.hasStart ? '✓' : 'No'}`;
+        if (endStatusElement) endStatusElement.textContent = `Final: ${stats.hasEnd ? '✓' : 'No'}`;
+        if (wallsStatusElement) wallsStatusElement.textContent = `Muros: ${stats.walls} | Tráfico: ${stats.traffic}`;
     }
     
     getModeDescription() {

@@ -69,9 +69,42 @@ class Visualization3D {
     
     createScene() {
         this.scene = new THREE.Scene();
-        // Fondo blanco para canvas
-        this.scene.background = new THREE.Color(0x4B764C);
+        // No usar color de fondo para que la skySphere sea visible
+        this.scene.background = null;
+
+        // Crear cielo simple (esfera invertida con gradiente)
+        this.createSkySphere();
     }
+
+    createSkySphere() {
+        // Esfera muy grande invertida con un material que simula un gradiente de cielo
+        const geom = new THREE.SphereGeometry(500, 32, 15);
+        // Invertir normales para que se vea desde dentro
+        geom.scale(-1, 1, 1);
+
+        // Crear canvas para gradiente
+        const size = 512;
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = size;
+        const ctx = canvas.getContext('2d');
+
+        const grd = ctx.createLinearGradient(0, 0, 0, size);
+        grd.addColorStop(0, '#0b2b1a'); // top - oscuro
+        grd.addColorStop(0.5, '#1b5e3a');
+    grd.addColorStop(1, '#3e8e41'); // bottom - match grass hex #3e8e41
+
+        ctx.fillStyle = grd;
+        ctx.fillRect(0, 0, size, size);
+
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.needsUpdate = true;
+
+        const mat = new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide });
+        this.skySphere = new THREE.Mesh(geom, mat);
+        this.scene.add(this.skySphere);
+    }
+
+    // (backdrop buildings removed)
     
     createCamera() {
         this.camera = new THREE.PerspectiveCamera(
@@ -93,15 +126,20 @@ class Visualization3D {
             return;
         }
         console.log('Canvas encontrado:', canvas);
-        
+        // Hacer que el renderer use el tamaño del contenedor principal en lugar de window
+        const rect = this.container.getBoundingClientRect();
         this.renderer = new THREE.WebGLRenderer({ 
             antialias: true,
-            canvas: canvas
+            canvas: canvas,
+            alpha: false
         });
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.renderer.setPixelRatio(window.devicePixelRatio || 1);
+        this.renderer.setSize(Math.max(1, Math.floor(rect.width)), Math.max(1, Math.floor(rect.height)));
+    // Ajustar clear color para que no aparezca negro fuera del canvas
+    this.renderer.setClearColor(0x3e8e41, 1); // match exact grass hex #3e8e41
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-        console.log('Renderer configurado con tamaño:', window.innerWidth, 'x', window.innerHeight);
+        console.log('Renderer configurado con tamaño del contenedor:', rect.width, 'x', rect.height);
     }
     
     createLights() {
@@ -124,38 +162,130 @@ class Visualization3D {
     }
     
     createMaterials() {
+        // Crear texturas procedurales simples usando Canvas para no depender de assets externos
+        const grassTexture = this.createGrassTexture();
+        grassTexture.wrapS = grassTexture.wrapT = THREE.RepeatWrapping;
+    grassTexture.repeat.set(12, 12);
+
+        const asphaltTexture = this.createAsphaltTexture();
+        asphaltTexture.wrapS = asphaltTexture.wrapT = THREE.RepeatWrapping;
+        asphaltTexture.repeat.set(4, 4);
+
+        const gridTileTexture = this.createGridTileTexture();
+        gridTileTexture.wrapS = gridTileTexture.wrapT = THREE.RepeatWrapping;
+        gridTileTexture.repeat.set(1, 1);
+
         this.materials = {
-            empty: new THREE.MeshLambertMaterial({ 
+            empty: new THREE.MeshStandardMaterial({ 
                 color: 0xffffff,
-                transparent: false,
-                opacity: 1.0
+                metalness: 0.0,
+                roughness: 0.9,
+                map: gridTileTexture
             }),
-            wall: new THREE.MeshLambertMaterial({ 
-                color: 0x2C2C2C, // Gris más oscuro
-                transparent: false,
-                opacity: 1.0
+            wall: new THREE.MeshStandardMaterial({ 
+                color: 0x2C2C2C,
+                metalness: 0.1,
+                roughness: 0.7
             }),
-            traffic: new THREE.MeshLambertMaterial({
-                color: 0xFFA500, // naranja para tráfico
-                transparent: false,
-                opacity: 1.0,
+            traffic: new THREE.MeshStandardMaterial({
+                color: 0xFFA500,
+                metalness: 0.0,
+                roughness: 0.6
             }),
-            start: new THREE.MeshLambertMaterial({ 
+            start: new THREE.MeshStandardMaterial({ 
                 color: 0x4CAF50,
-                transparent: false,
-                opacity: 1.0
+                metalness: 0.2,
+                roughness: 0.4
             }),
-            end: new THREE.MeshLambertMaterial({ 
+            end: new THREE.MeshStandardMaterial({ 
                 color: 0xF44336,
-                transparent: false,
-                opacity: 1.0
+                metalness: 0.2,
+                roughness: 0.4
             }),
-            path: new THREE.MeshLambertMaterial({ 
+            path: new THREE.MeshStandardMaterial({ 
                 color: 0xffffff,
-                transparent: false,
-                opacity: 1.0
+                metalness: 0.0,
+                roughness: 0.8
+            }),
+            grass: new THREE.MeshStandardMaterial({ 
+                map: grassTexture,
+                metalness: 0.0,
+                roughness: 1.0
+            }),
+            asphalt: new THREE.MeshStandardMaterial({ 
+                map: asphaltTexture,
+                metalness: 0.0,
+                roughness: 0.9
             })
         };
+    }
+
+    // Procedural grass texture (small canvas pattern)
+    createGrassTexture() {
+        const size = 128;
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = size;
+        const ctx = canvas.getContext('2d');
+
+        // base
+        ctx.fillStyle = '#3e8e41';
+        ctx.fillRect(0, 0, size, size);
+
+        // blades
+        for (let i = 0; i < 200; i++) {
+            ctx.strokeStyle = (Math.random() > 0.5) ? '#2f7a32' : '#4fb14a';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            const x = Math.random() * size;
+            const y = Math.random() * size;
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + (Math.random() - 0.5) * 6, y - (1 + Math.random() * 6));
+            ctx.stroke();
+        }
+
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.needsUpdate = true;
+        return tex;
+    }
+
+    // Procedural asphalt texture (small noise)
+    createAsphaltTexture() {
+        const size = 128;
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = size;
+        const ctx = canvas.getContext('2d');
+
+        // base
+        ctx.fillStyle = '#4b4b4b';
+        ctx.fillRect(0, 0, size, size);
+
+        // speckles
+        for (let i = 0; i < 800; i++) {
+            const v = Math.random() * 60;
+            ctx.fillStyle = `rgb(${80 + v}, ${80 + v}, ${80 + v})`;
+            ctx.fillRect(Math.random() * size, Math.random() * size, 1, 1);
+        }
+
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.needsUpdate = true;
+        return tex;
+    }
+
+    // Simple tiled grid tile texture (subtle highlight)
+    createGridTileTexture() {
+        const size = 64;
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = size;
+        const ctx = canvas.getContext('2d');
+
+        ctx.fillStyle = '#888888';
+        ctx.fillRect(0, 0, size, size);
+        ctx.fillStyle = 'rgba(255,255,255,0.03)';
+        ctx.fillRect(0, 0, size, size / 2);
+
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.needsUpdate = true;
+        return tex;
     }
     
     setupControls() {
@@ -204,6 +334,15 @@ class Visualization3D {
         
         this.scene.add(this.grid);
         console.log('Grid agregado a la escena');
+        // Guardar dimensiones y centro del grid para posicionar cámaras dinámicamente
+        try {
+            this.gridWidth = grid.width;
+            this.gridHeight = grid.height;
+            this.gridCenterX = grid.width * this.cellSize / 2;
+            this.gridCenterZ = grid.height * this.cellSize / 2;
+        } catch (e) {
+            // no critical
+        }
     }
     
     createEdgeWalls(grid) {
@@ -273,13 +412,11 @@ class Visualization3D {
     
     createGrassGround(grid) {
         // Crear suelo de pasto que se extiende más allá del grid
-        const grassSize = Math.max(grid.width, grid.height) * 2; // Hacer el pasto más grande que el grid
+    const grassSize = Math.max(grid.width, grid.height) * 5; // Hacer el pasto mucho más grande que el grid
         
         const grassGeometry = new THREE.PlaneGeometry(grassSize, grassSize);
-        const grassMaterial = new THREE.MeshLambertMaterial({ 
-            color: 0x4CAF50, // Verde pasto
-            side: THREE.DoubleSide
-        });
+        // Usar material procedural si está disponible
+        const grassMaterial = (this.materials && this.materials.grass) ? this.materials.grass : new THREE.MeshLambertMaterial({ color: 0x4CAF50, side: THREE.DoubleSide });
         
         const grassGround = new THREE.Mesh(grassGeometry, grassMaterial);
         grassGround.rotation.x = -Math.PI / 2;
@@ -298,10 +435,8 @@ class Visualization3D {
             grid.width * this.cellSize,
             grid.height * this.cellSize
         );
-        const floorMaterial = new THREE.MeshLambertMaterial({ 
-            color: 0x666666, // Gris más oscuro para el grid
-            side: THREE.DoubleSide
-        });
+        // Usar material procedural (asphalt) si está disponible
+        const floorMaterial = (this.materials && this.materials.asphalt) ? this.materials.asphalt : new THREE.MeshLambertMaterial({ color: 0x666666, side: THREE.DoubleSide });
         
         const gridFloor = new THREE.Mesh(floorGeometry, floorMaterial);
         gridFloor.rotation.x = -Math.PI / 2;
@@ -449,9 +584,20 @@ class Visualization3D {
      * Cambiar a vista 3D (45 grados) para pathfinding
      */
     setCamera3D() {
-        // Posición para vista 3D más inclinada (30 grados aproximadamente)
-        this.camera.position.set(15, 20, 20);
-        this.camera.lookAt(15, 0, 15);
+        // Posición para vista 3D ajustada dinámicamente según tamaño del grid
+        const cx = (this.gridCenterX !== undefined) ? this.gridCenterX : 15;
+        const cz = (this.gridCenterZ !== undefined) ? this.gridCenterZ : 15;
+        const maxDim = Math.max(this.gridWidth || 30, this.gridHeight || 30);
+
+    // Ajustar la cámara para que quede más cerca del tablero
+    const baseY = Math.max(8, Math.floor(maxDim * 0.45));
+    const y = baseY + 10; // altura moderada
+
+    // Reducir offset Z para acercar la cámara al tablero
+    const zOffset = Math.max(8, Math.floor(maxDim * 0.4));
+
+    this.camera.position.set(cx, y, cz + zOffset);
+        this.camera.lookAt(cx, 0, cz);
     }
     
     /**
@@ -700,9 +846,10 @@ class Visualization3D {
     }
     
     onWindowResize() {
-        this.camera.aspect = window.innerWidth / window.innerHeight;
+        const rect = this.container.getBoundingClientRect();
+        this.camera.aspect = rect.width / rect.height;
         this.camera.updateProjectionMatrix();
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.renderer.setSize(Math.max(1, Math.floor(rect.width)), Math.max(1, Math.floor(rect.height)));
     }
     
     animate() {

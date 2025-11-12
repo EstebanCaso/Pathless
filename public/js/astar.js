@@ -19,8 +19,10 @@ class AStar {
             return null;
         }
         
-        // Limpiar pathfinding anterior
-        this.grid.clearPath();
+        // Limpiar solo el marcado de path anterior (no cambiar tipos de celdas ni visuales)
+        if (typeof this.grid.clearPath === 'function') {
+            this.grid.clearPath();
+        }
         
         const startCell = this.grid.getCell(startX, startY);
         const endCell = this.grid.getCell(endX, endY);
@@ -69,10 +71,11 @@ class AStar {
                 // Calcular g tentativo
                 const movementCost = this.distance(current, neighbor);
     
-                // Penalización por tráfico (si la celda es tipo "traffic")
+                // Penalización por tráfico (usar level configurado por celda si existe)
                 let trafficPenalty = 0;
                 if (neighbor.type === 'traffic') {
-                    trafficPenalty = 2; // Ajusta este valor según la severidad del tráfico
+                    const level = neighbor.trafficLevel || 2;
+                    trafficPenalty = (level - 1) * 1; // cada nivel aumenta el costo
                 }
 
                 const cellCost = neighbor.cost || 1;
@@ -139,7 +142,7 @@ class AStar {
             cell = cell.parent;
         }
         
-        // Marcar el camino en el grid
+        // Marcar el camino en el grid (usar flag onPath para no sobrescribir tipos)
         this.markPath(path);
         
         return path;
@@ -149,7 +152,7 @@ class AStar {
      * Marca el camino encontrado en el grid
      */
     markPath(path) {
-        // No marcar el punto de inicio y final como path
+        // Marcar el camino en el grid: cambiar tipo a 'path' solo para celdas vacías
         for (let i = 1; i < path.length - 1; i++) {
             const point = path[i];
             const cell = this.grid.getCell(point.x, point.y);

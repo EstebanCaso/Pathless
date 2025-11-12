@@ -11,6 +11,8 @@ class UserInteraction {
         this.currentMode = null; // Sin modo por defecto - usuario debe seleccionar
         this.isMouseDown = false;
         this.lastCell = null;
+    this.autoRecompute = false; // cuando true, re-ejecutar ruta al colocar muros/tráfico
+    this.currentTrafficLevel = 2; // valor por defecto del slider
         
         this.setupEventListeners();
         this.updateUI();
@@ -45,10 +47,6 @@ class UserInteraction {
             this.clearAll();
         });
         
-        document.getElementById('reset-view').addEventListener('click', () => {
-            this.resetView();
-        });
-        
         // Eventos del canvas
         const canvas = document.getElementById('canvas');
         
@@ -77,6 +75,17 @@ class UserInteraction {
         document.addEventListener('keydown', (event) => {
             this.handleKeyPress(event);
         });
+
+        // Slider de tráfico
+        const trafficSlider = document.getElementById('traffic-level');
+        const trafficLabel = document.getElementById('traffic-level-label');
+        if (trafficSlider) {
+            trafficSlider.addEventListener('input', (e) => {
+                const v = parseInt(e.target.value, 10);
+                this.currentTrafficLevel = v;
+                if (trafficLabel) trafficLabel.textContent = String(v);
+            });
+        }
     }
     
     setMode(mode) {
@@ -244,6 +253,10 @@ class UserInteraction {
         const newType = cell.type === 'wall' ? 'empty' : 'wall';
         this.grid.setCellType(x, y, newType);
         this.visualization.updateGrid(this.grid);
+        // Si estamos en modo auto recompute, recalcular la ruta desde la posición actual del agente
+        if (this.autoRecompute) {
+            this.recomputeFromAgent();
+        }
     }
     toggleTraffic(x, y) {
         const cell = this.grid.getCell(x, y);
@@ -254,10 +267,16 @@ class UserInteraction {
             return;
         }
         
-        // Alternar entre muro y vacío
-        const newType = cell.type === 'traffic' ? 'empty' : 'traffic';
-        this.grid.setCellType(x, y, newType);
+        // Alternar entre tráfico y vacío. Si se coloca tráfico, usar el nivel actual del slider
+        if (cell.type === 'traffic') {
+            this.grid.setCellType(x, y, 'empty');
+        } else {
+            this.grid.setTrafficLevel(x, y, this.currentTrafficLevel);
+        }
         this.visualization.updateGrid(this.grid);
+        if (this.autoRecompute) {
+            this.recomputeFromAgent();
+        }
     }
     
     clearCell(x, y) {
@@ -277,17 +296,17 @@ class UserInteraction {
             return;
         }
         
-        // Cambiar a vista 3D (45 grados) para pathfinding
-        this.visualization.setCamera3D();
-        
-        // Limpiar path anterior
-        this.grid.clearPath();
-        this.visualization.updateGrid(this.grid);
-        
-        // Buscar camino
-        const startTime = performance.now();
-        const path = this.astar.findPathFromGrid();
-        const endTime = performance.now();
+    // Cambiar a vista 3D (45 grados) para pathfinding
+    this.visualization.setCamera3D();
+
+    // Limpiar path anterior (flags)
+    this.grid.clearPath();
+    this.visualization.updateGrid(this.grid);
+
+    // Buscar camino
+    const startTime = performance.now();
+    const path = this.astar.findPathFromGrid();
+    const endTime = performance.now();
         
         if (path) {
             // Mostrar estadísticas
@@ -304,24 +323,77 @@ class UserInteraction {
             
             // Animar el carro siguiendo el path
             this.visualization.animateCar(path, this.grid);
-            
+
+            // Activar auto recompute: si el usuario agrega muros/traffic se recalculará
+            this.autoRecompute = true;
+
             // Mostrar mensaje de éxito
             this.showMessage(`¡Camino encontrado! Longitud: ${pathStats.pathLength} celdas, Tiempo: ${timeTaken}ms. Presiona 'R' para volver a vista 2D.`);
         } else {
             this.showMessage('No se pudo encontrar un camino. Verifica que no haya muros bloqueando el camino.');
         }
     }
+
+    /**
+     * Recalcula la ruta usando la posición actual del agente como inicio y el endPoint del grid como destino.
+     * No cambia la cámara ni reinicia la visualización; actualiza path overlays y la ruta del carro.
+     */
+    recomputeFromAgent() {
+        if (!this.visualization) return;
+        if (!this.grid.endPoint) return;
+
+        // Obtener la celda donde está actualmente el carro
+        const carCell = this.visualization.getCarCurrentCell();
+        let startCell = carCell;
+        if (!startCell) {
+            if (!this.grid.startPoint) return;
+            startCell = this.grid.startPoint;
+        }
+
+        // Limpiar path previo
+        this.grid.clearPath();
+
+        // Buscar ruta desde la posición actual del agente
+        const path = this.astar.findPath(startCell.x, startCell.y, this.grid.endPoint.x, this.grid.endPoint.y);
+        if (path) {
+            // Actualizar overlays
+            this.visualization.updateGrid(this.grid);
+            // Reemplazar la ruta del carro preservando posición aproximada
+            this.visualization.setCarPathPreservePosition(path, this.grid);
+        } else {
+            // No se puede llegar: mostrar explosión y desactivar agente
+            if (this.visualization && typeof this.visualization.explodeAtCarAndStop === 'function') {
+                this.visualization.explodeAtCarAndStop();
+            }
+            this.autoRecompute = false;
+            this.showMessage('Camino bloqueado: el agente no puede llegar a la meta.');
+        }
+    }
     
     clearAll() {
         this.grid.clearAll();
         this.visualization.updateGrid(this.grid);
+        // Desactivar recompute automático y detener agente
+        this.autoRecompute = false;
+        if (this.visualization && typeof this.visualization.stopCarAnimation === 'function') {
+            this.visualization.stopCarAnimation();
+        }
+        // Resetear vista a 2D tambien (comportamiento combinado)
+        if (this.visualization && typeof this.visualization.setCamera2D === 'function') {
+            this.visualization.setCamera2D();
+        }
         this.updateStatus();
-        this.showMessage('Grid limpiado completamente.');
+        this.showMessage('Grid y vista reseteados correctamente.');
     }
     
     resetView() {
         // Volver a vista 2D (90 grados) para dibujo
         this.visualization.setCamera2D();
+        // Desactivar recompute automático y detener agente
+        this.autoRecompute = false;
+        if (this.visualization && typeof this.visualization.stopCarAnimation === 'function') {
+            this.visualization.stopCarAnimation();
+        }
         this.updateStatus();
         this.showMessage('Vista de cámara reseteada.');
     }

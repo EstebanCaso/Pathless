@@ -32,6 +32,7 @@ class Visualization3D {
         this.isAnimating = false;
         this.carGrid = null; // Referencia al grid para verificar tipos de celda
         this.trafficEffect = null; // Efecto visual para tráfico
+    this.explosions = []; // Lista de explosiones activas
         
         this.init();
     }
@@ -150,7 +151,7 @@ class Visualization3D {
                 opacity: 1.0
             }),
             path: new THREE.MeshLambertMaterial({ 
-                color: 0x2196F3,
+                color: 0xffffff,
                 transparent: false,
                 opacity: 1.0
             })
@@ -347,66 +348,67 @@ class Visualization3D {
     
     createCell(cell, x, y) {
         let height, geometry, material, mesh;
-        
+
         if (cell.type === 'wall') {
-            // Muros 3D con altura aleatoria (reducida a la mitad)
-            height = 0.5 + Math.random() * 1; // Altura entre 0.5 y 1 unidad
-            
+            // Muros 3D usando propiedades visuales almacenadas en la celda
+            const v = cell.visual || {};
+            height = v.height || (0.5 + Math.random() * 1);
+
             geometry = new THREE.BoxGeometry(
                 this.cellSize * 0.9,
                 height,
                 this.cellSize * 0.9
             );
-            
-            // Crear material con color aleatorio para variedad
-            const wallColors = [0x2C2C2C, 0x404040, 0x555555, 0x1A1A1A, 0x333333]; // Diferentes tonos de gris
-            const randomColor = wallColors[Math.floor(Math.random() * wallColors.length)];
+
+            const color = v.color || 0x2C2C2C;
             material = new THREE.MeshLambertMaterial({ 
-                color: randomColor,
+                color: color,
                 transparent: false,
                 opacity: 1.0
             });
-            
+
             mesh = new THREE.Mesh(geometry, material);
-            
+
             mesh.position.set(
                 x * this.cellSize + this.cellSize / 2,
                 height / 2,
                 y * this.cellSize + this.cellSize / 2
             );
-            
-            // Agregar variaciones aleatorias para hacer los muros más realistas
-            mesh.rotation.y = (Math.random() - 0.5) * 0.1; // Rotación ligera
-            mesh.scale.x = 0.8 + Math.random() * 0.4; // Ancho variable
-            mesh.scale.z = 0.8 + Math.random() * 0.4; // Profundidad variable
-            
+
+            // Aplicar transformaciones guardadas
+            mesh.rotation.y = (v.rotationY !== undefined) ? v.rotationY : ((Math.random() - 0.5) * 0.1);
+            mesh.scale.x = (v.scaleX !== undefined) ? v.scaleX : (0.8 + Math.random() * 0.4);
+            mesh.scale.z = (v.scaleZ !== undefined) ? v.scaleZ : (0.8 + Math.random() * 0.4);
+
         } else {
             // Otras celdas con altura fija
             height = 0.1;
-            
+
             geometry = new THREE.BoxGeometry(
                 this.cellSize * 0.9,
                 height,
                 this.cellSize * 0.9
             );
-            
+
             material = this.materials[cell.type];
             mesh = new THREE.Mesh(geometry, material);
-            
+
             mesh.position.set(
                 x * this.cellSize + this.cellSize / 2,
                 height / 2,
                 y * this.cellSize + this.cellSize / 2
             );
         }
-        
+
         mesh.castShadow = true;
         mesh.receiveShadow = true;
-        
+
         // Agregar etiqueta para identificación
         mesh.userData = { cell: cell, gridX: x, gridY: y };
-        
+
         this.grid.add(mesh);
+
+        // (El camino ahora se representa como celdas de tipo 'path' con material blanco)
     }
     
     updateGrid(grid) {
@@ -616,6 +618,79 @@ class Visualization3D {
         // Incrementar índice con velocidad ajustada
         this.carIndex += currentSpeed;
     }
+
+    /**
+     * Crear una explosión visual en coordenadas del mundo (x,z)
+     */
+    createExplosionAt(worldX, worldZ) {
+        const geom = new THREE.SphereGeometry(1, 64, 48);
+        const mat = new THREE.MeshBasicMaterial({ color: 0xFF4444, transparent: false, opacity: 1.0 });
+        const mesh = new THREE.Mesh(geom, mat);
+        mesh.position.set(worldX, 0.3, worldZ);
+        mesh.scale.setScalar(0.1);
+        mesh.userData = { life: 0, duration: 90 }; // frames
+        this.scene.add(mesh);
+        this.explosions.push(mesh);
+    }
+
+    /**
+     * Detiene el carro y crea una explosión en su posición actual
+     */
+    explodeAtCarAndStop() {
+        if (this.car) {
+            const worldX = this.car.position.x;
+            const worldZ = this.car.position.z;
+            this.stopCarAnimation();
+            this.createExplosionAt(worldX, worldZ);
+        }
+    }
+
+    /**
+     * Obtener la celda del grid donde actualmente está el carro (aproximado)
+     */
+    getCarCurrentCell() {
+        if (!this.car) return null;
+        const x = Math.floor(this.car.position.x / this.cellSize);
+        const y = Math.floor(this.car.position.z / this.cellSize);
+        if (x < 0 || x >= (this.carGrid ? this.carGrid.width : 9999) || y < 0 || y >= (this.carGrid ? this.carGrid.height : 9999)) {
+            return null;
+        }
+        return { x: x, y: y };
+    }
+
+    /**
+     * Reemplaza la ruta del carro intentando preservar su posición actual (aproximado)
+     */
+    setCarPathPreservePosition(newPath, grid = null) {
+        if (!newPath || newPath.length === 0) return;
+        if (!this.car) this.createCar();
+
+        // Guardar referencia al grid
+        this.carGrid = grid;
+
+        // Encontrar índice más cercano en la nueva ruta a la posición actual del carro
+        let bestIndex = 0;
+        if (this.car && this.car.visible) {
+            let bestDist = Infinity;
+            const cx = this.car.position.x;
+            const cz = this.car.position.z;
+            for (let i = 0; i < newPath.length; i++) {
+                const p = newPath[i];
+                const px = p.x * this.cellSize + this.cellSize / 2;
+                const pz = p.y * this.cellSize + this.cellSize / 2;
+                const d = Math.hypot(px - cx, pz - cz);
+                if (d < bestDist) {
+                    bestDist = d;
+                    bestIndex = i;
+                }
+            }
+        }
+
+        this.carPath = newPath;
+        this.carIndex = bestIndex;
+        this.isAnimating = true;
+        this.car.visible = true;
+    }
     
     /**
      * Función de easing para movimiento suave
@@ -635,6 +710,22 @@ class Visualization3D {
         
         // Actualizar animación del carro
         this.updateCarAnimation();
+        
+        // Actualizar explosiones
+        if (this.explosions && this.explosions.length > 0) {
+            for (let i = this.explosions.length - 1; i >= 0; i--) {
+                const e = this.explosions[i];
+                e.userData.life++;
+                const t = e.userData.life / e.userData.duration;
+                e.scale.setScalar(0.1 + t * 1.5);
+                e.material.opacity = Math.max(0, 1 - t);
+                if (e.userData.life >= e.userData.duration) {
+                    // remover
+                    this.scene.remove(e);
+                    this.explosions.splice(i, 1);
+                }
+            }
+        }
         
         this.renderer.render(this.scene, this.camera);
         
@@ -658,5 +749,20 @@ class Visualization3D {
         Object.values(this.materials).forEach(material => {
             material.dispose();
         });
+    }
+
+    /**
+     * Detiene la animación del carro inmediatamente y oculta efectos.
+     */
+    stopCarAnimation() {
+        this.isAnimating = false;
+        this.carPath = null;
+        this.carIndex = 0;
+        if (this.car) {
+            this.car.visible = false;
+        }
+        if (this.trafficEffect) {
+            this.trafficEffect.visible = false;
+        }
     }
 }

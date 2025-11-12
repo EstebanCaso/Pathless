@@ -10,38 +10,61 @@
             padding: 0;
             background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
             font-family: 'Arial', sans-serif;
+            height: 100vh;
             overflow: hidden;
         }
-        
         #container {
             width: 100vw;
             height: 100vh;
-            position: relative;
+            display: flex;
+            flex-direction: row;
         }
-        
+
+        /* Left sidebar */
+        #sidebar {
+            width: 10%;
+            min-width: 160px;
+            max-width: 320px;
+            height: 100vh;
+            box-sizing: border-box;
+            padding: 12px;
+            background: rgba(255,255,255,0.95);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            color: #222;
+            box-shadow: 2px 0 20px rgba(0,0,0,0.06);
+            z-index: 200;
+            font-size: 13px;
+        }
+
+        /* Main game area */
+        #main {
+            width: 90%;
+            height: 100vh;
+            position: relative;
+            overflow: hidden;
+        }
+
         #canvas {
             width: 100%;
             height: 100%;
             display: block;
         }
-        
-        #ui {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            right: 10px;
-            background: rgba(255, 255, 255, 0.95);
-            padding: 10px 20px;
-            border-radius: 12px;
-            color: #333;
-            z-index: 100;
+
+        /* Controls inside sidebar */
+        .control-group {
             display: flex;
-            flex-wrap: wrap;
+            gap: 10px;
             align-items: center;
-            gap: 15px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            margin: 0;
+        }
+
+        .vertical-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            align-items: stretch;
         }
         
         .control-group {
@@ -61,14 +84,20 @@
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border: none;
-            padding: 10px 18px;
+            padding: 8px 12px;
             border-radius: 8px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 13px;
             white-space: nowrap;
             font-weight: 500;
-            transition: all 0.3s ease;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            transition: all 0.18s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+            width: 100%;
+            height: 44px;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            justify-content: flex-start;
         }
         
         button:hover {
@@ -100,53 +129,98 @@
             border: 1px solid rgba(0, 0, 0, 0.1);
             font-weight: 500;
         }
+
+        /* Traffic popout */
+        .traffic-wrapper { position: relative; display: inline-block; }
+        .traffic-popout {
+            display: none;
+            position: absolute;
+            left: 100%;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255,255,255,0.98);
+            border: 1px solid rgba(0,0,0,0.06);
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+            width: 160px;
+        }
+        .traffic-wrapper:hover .traffic-popout,
+        .traffic-wrapper:focus-within .traffic-popout { display: block; }
+
+        /* Icon buttons */
+    .icon-btn { display:flex; gap:8px; align-items:center; justify-content:flex-start; padding:0 8px; }
+    .icon { font-size:18px; width:22px; text-align:center; }
     </style>
 </head>
 <body>
     <div id="container">
-        <canvas id="canvas"></canvas>
-        <div id="ui">
+        <div id="sidebar">
             <h2 style="margin: 0; font-size: 18px;">Pathless</h2>
-            
-            <div class="control-group">
-                <label style="margin: 0; font-size: 12px;">Modo:</label>
-                <button id="mode-start" class="mode-button active">Inicio</button>
-                <button id="mode-end" class="mode-button">Final</button>
-                <button id="mode-wall" class="mode-button">Muros</button>
-                <button id="mode-traffic" class="mode-button">Tráfico</button>
-                <button id="mode-clear" class="mode-button">Limpiar</button>
-            </div>
-            
-            <div class="control-group">
-                <button id="find-path">Buscar</button>
-                <button id="clear-all">Limpiar Todo</button>
-                <button id="reset-view">Reset</button>
-                <button id="toggle-view">Vista 3D</button>
-            </div>
-            
-            <div id="status" style="font-size: 12px; margin: 0;">
-                <span id="view-mode">2D</span> | 
-                <span id="start-status">Inicio: No</span> | 
-                <span id="end-status">Final: No</span> | 
-                <span id="walls-status">Muros: 0</span>
-                <span style="margin-left: 10px; opacity: 0.7;">Presiona H para ayuda</span>
+
+            <div class="vertical-group">
+                <div class="control-group">
+                    <button id="mode-start" class="mode-button icon-btn active"><span class="icon">📍</span> Inicio</button>
+                </div>
+                <div class="control-group">
+                    <button id="mode-end" class="mode-button icon-btn"><span class="icon">🏁</span> Final</button>
+                </div>
+                <div class="control-group">
+                    <button id="mode-wall" class="mode-button icon-btn"><span class="icon">🧱</span> Muros</button>
+                </div>
+                <div class="control-group traffic-wrapper">
+                    <button id="mode-traffic" class="mode-button icon-btn"><span class="icon">🚦</span> Tráfico</button>
+                    <div class="traffic-popout" aria-hidden="true">
+                        <label style="font-size:12px; margin-bottom:6px; display:block;">Intensidad Tráfico</label>
+                        <input id="traffic-level" type="range" min="1" max="5" value="2" style="width:100%;">
+                        <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:6px;"><span>1</span><span id="traffic-level-label">2</span><span>5</span></div>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <button id="mode-clear" class="mode-button icon-btn"><span class="icon">🧹</span> Limpiar</button>
+                </div>
+
+                <div style="height:8px"></div>
+
+                <div class="control-group">
+                    <button id="find-path" class="icon-btn"><span class="icon">🔍</span> Buscar</button>
+                </div>
+                <div class="control-group">
+                    <button id="clear-all" class="icon-btn"><span class="icon">🧼</span> Limpiar Todo</button>
+                </div>
+                <!-- reset merged into 'Limpiar Todo' button -->
+                <div class="control-group">
+                    <button id="toggle-view" class="icon-btn"><span class="icon">🖼️</span> Vista</button>
+                </div>
+
+                <div id="status" style="font-size: 12px; margin-top: 8px;">
+                    <div><span id="view-mode">2D</span></div>
+                    <div><span id="start-status">Inicio: No</span></div>
+                    <div><span id="end-status">Final: No</span></div>
+                    <div><span id="walls-status">Muros: 0</span></div>
+                    <div style="margin-top:6px; opacity:0.7; font-size:11px;">H = ayuda</div>
+                </div>
             </div>
         </div>
-        
-        <!-- Panel de ayuda -->
-        <div id="help-panel" style="display: none; position: absolute; top: 60px; left: 10px; background: rgba(0,0,0,0.9); color: white; padding: 15px; border-radius: 8px; font-size: 12px; z-index: 200; max-width: 300px;">
-            <h3 style="margin: 0 0 10px 0;">Controles:</h3>
-            <div><strong>S</strong> - Punto Inicio</div>
-            <div><strong>E</strong> - Punto Final</div>
-            <div><strong>W</strong> - Muros</div>
-            <div><strong>T</strong> - Tráfico</div>
-            <div><strong>C</strong> - Limpiar</div>
-            <div><strong>F</strong> - Buscar Camino</div>
-            <div><strong>R</strong> - Reset Vista</div>
-            <div><strong>V</strong> - Cambiar Vista</div>
-            <div><strong>H</strong> - Mostrar/Ocultar Ayuda</div>
-            <div style="margin-top: 10px; opacity: 0.8;">
-                <strong>Mouse:</strong> Arrastra para mover/rotar, rueda para zoom
+
+        <div id="main">
+            <canvas id="canvas"></canvas>
+
+            <!-- Panel de ayuda -->
+            <div id="help-panel" style="display: none; position: absolute; top: 60px; left: 18px; background: rgba(0,0,0,0.9); color: white; padding: 15px; border-radius: 8px; font-size: 12px; z-index: 300; max-width: 300px;">
+                <h3 style="margin: 0 0 10px 0;">Controles:</h3>
+                <div><strong>S</strong> - Punto Inicio</div>
+                <div><strong>E</strong> - Punto Final</div>
+                <div><strong>W</strong> - Muros</div>
+                <div><strong>T</strong> - Tráfico</div>
+                <div><strong>C</strong> - Limpiar</div>
+                <div><strong>F</strong> - Buscar Camino</div>
+                <div><strong>R</strong> - Reset Vista</div>
+                <div><strong>V</strong> - Cambiar Vista</div>
+                <div><strong>H</strong> - Mostrar/Ocultar Ayuda</div>
+                <div style="margin-top: 10px; opacity: 0.8;">
+                    <strong>Mouse:</strong> Arrastra para mover/rotar, rueda para zoom
+                </div>
             </div>
         </div>
     </div>

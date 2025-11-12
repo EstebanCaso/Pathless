@@ -50,14 +50,35 @@ class Grid {
             
             // Establecer nuevo tipo
             cell.type = type;
-            
-            if(type == 'wall'){
+
+            // Mantener propiedades visuales previas si existen (para que muros ya colocados no cambien)
+            if (!cell.visual) {
+                cell.visual = {};
+            }
+
+            if (type === 'wall') {
+                // Si el muro ya tiene propiedades visuales, no reasignarlas
+                if (!cell.visual.height) {
+                    // Propiedades visuales iniciales para muros
+                    cell.visual.height = 0.5 + Math.random() * 1; // Altura entre 0.5 y 1
+                    cell.visual.rotationY = (Math.random() - 0.5) * 0.1;
+                    cell.visual.scaleX = 0.8 + Math.random() * 0.4;
+                    cell.visual.scaleZ = 0.8 + Math.random() * 0.4;
+                    const wallColors = [0x2C2C2C, 0x404040, 0x555555, 0x1A1A1A, 0x333333];
+                    cell.visual.color = wallColors[Math.floor(Math.random() * wallColors.length)];
+                }
+
                 cell.walkable = false;
                 cell.cost = Infinity;
-            }else if(type === 'traffic'){
+            } else if (type === 'traffic') {
                 cell.walkable = true;
-                cell.cost = 2;
-            }else{
+                // Si no tiene nivel de tráfico, asignar 2 por defecto
+                if (typeof cell.trafficLevel === 'undefined') {
+                    cell.trafficLevel = 2;
+                }
+                // Cost depende del nivel de tráfico
+                cell.cost = 1 + (cell.trafficLevel - 1) * 1; // nivel 1 => cost 1, nivel 5 => cost 5
+            } else {
                 cell.walkable = true;
                 cell.cost = 1;
             }
@@ -72,6 +93,20 @@ class Grid {
             return true;
         }
         return false;
+    }
+
+    /**
+     * Establece el nivel de tráfico de una celda sin cambiar otros tráficos existentes
+     */
+    setTrafficLevel(x, y, level) {
+        if (!this.isValidPosition(x, y)) return false;
+        const cell = this.getCell(x, y);
+        if (!cell) return false;
+        cell.trafficLevel = level;
+        cell.type = 'traffic';
+        cell.walkable = true;
+        cell.cost = 1 + (level - 1) * 1;
+        return true;
     }
     
     /**
@@ -214,6 +249,7 @@ class Grid {
         for (let y = 0; y < this.height; y++) {
             for (let x = 0; x < this.width; x++) {
                 const cell = this.cells[y][x];
+                // Limpiar tipos 'path' (usado por AStar)
                 if (cell.type === 'path') {
                     cell.type = 'empty';
                 }

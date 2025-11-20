@@ -436,7 +436,94 @@ class UserInteraction {
             case 'escape':
                 this.setMode('start');
                 break;
+            case '1':
+            case '2':
+            case '3':
+            case '4':
+                this.loadDemoScenario(parseInt(event.key, 10));
+                break;
         }
+    }
+
+    loadDemoScenario(scenarioId) {
+        this.clearAll();
+        this.showMessage(`Cargando escenario complejo ${scenarioId}...`);
+
+        let startPoint, endPoint;
+
+        switch (scenarioId) {
+            case 1: 
+                startPoint = { x: 1, y: 1 };
+                endPoint = { x: 28, y: 28 };
+                this.grid.setCellType(startPoint.x, startPoint.y, 'start');
+                this.grid.setCellType(endPoint.x, endPoint.y, 'end');
+                for (let i = 0; i < 25; i++) {
+                    if (i % 4 !== 0) this.grid.setCellType(5, i, 'wall');
+                    if ((i + 2) % 4 !== 0) this.grid.setCellType(10, 29 - i, 'wall');
+                    if (i % 4 !== 0) this.grid.setCellType(15, i, 'wall');
+                    if ((i + 2) % 4 !== 0) this.grid.setCellType(20, 29 - i, 'wall');
+                    if (i % 4 !== 0) this.grid.setCellType(25, i, 'wall');
+                }
+                break;
+
+            case 2: 
+                startPoint = { x: 1, y: 15 };
+                endPoint = { x: 28, y: 15 };
+                this.grid.setCellType(startPoint.x, startPoint.y, 'start');
+                this.grid.setCellType(endPoint.x, endPoint.y, 'end');
+                for (let i = 0; i < 30; i += 6) {
+                    for (let j = 0; j < 30; j += 6) {
+                        for (let k = 0; k < 4; k++) {
+                            if (j + k !== 15) this.grid.setCellType(i + k, j + k, 'wall');
+                            if (i + k !== 15) this.grid.setCellType(i + k, j + 4 - k, 'wall');
+                        }
+                    }
+                }
+                break;
+
+            case 3: 
+                startPoint = { x: 1, y: 15 };
+                endPoint = { x: 28, y: 15 };
+                this.grid.setCellType(startPoint.x, startPoint.y, 'start');
+                this.grid.setCellType(endPoint.x, endPoint.y, 'end');
+               
+                for (let x = 5; x < 25; x++) {
+                    this.grid.setCellType(x, 10, 'wall');
+                    this.grid.setCellType(x, 20, 'wall');
+                }
+                for (let y = 10; y <= 20; y++) {
+                    this.grid.setCellType(25, y, 'wall'); // Pared final
+                }
+                // El camino real es más largo y por arriba
+                for (let x = 1; x < 28; x++) {
+                    if (x < 5 || x > 10) this.grid.setCellType(x, 5, 'wall');
+                }
+                break;
+
+            case 4:
+                startPoint = { x: 1, y: 15 };
+                endPoint = { x: 28, y: 15 };
+                this.grid.setCellType(startPoint.x, startPoint.y, 'start');
+                this.grid.setCellType(endPoint.x, endPoint.y, 'end');
+                // Un atajo corto pero muy costoso
+                for (let x = 10; x < 20; x++) {
+                    for (let y = 13; y < 18; y++) {
+                        this.grid.setTrafficLevel(x, y, 5); // Tráfico pesado
+                    }
+                }
+                // Un camino más largo pero libre
+                for (let x = 5; x < 25; x++) {
+                    this.grid.setCellType(x, 10, 'wall');
+                    this.grid.setCellType(x, 20, 'wall');
+                }
+                // Bloqueo para forzar la decisión
+                this.grid.setCellType(8, 15, 'wall');
+                this.grid.setCellType(22, 15, 'wall');
+                break;
+        }
+
+        this.visualization.updateGrid(this.grid);
+        this.updateStatus();
     }
     
     showMessage(message) {

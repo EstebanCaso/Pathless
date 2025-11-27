@@ -86,6 +86,12 @@ class UserInteraction {
                 if (trafficLabel) trafficLabel.textContent = String(v);
             });
         }
+        
+        // Botones de Demos
+        document.getElementById('demo-1').addEventListener('click', () => this.loadDemoScenario(1));
+        document.getElementById('demo-2').addEventListener('click', () => this.loadDemoScenario(2));
+        document.getElementById('demo-3').addEventListener('click', () => this.loadDemoScenario(3));
+        document.getElementById('demo-4').addEventListener('click', () => this.loadDemoScenario(4));
     }
     
     setMode(mode) {
